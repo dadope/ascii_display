@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 dirs="3.0.2"
 rand="0.8.3"
+clap="2.33.3"
