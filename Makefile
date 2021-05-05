@@ -1,6 +1,9 @@
 install:
 	sh install.sh
 
+uninstall:
+	sh uninstall.sh
+
 # not recommended
 install-root:
 	sh install.sh
