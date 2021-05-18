@@ -12,7 +12,7 @@ use terminal_size::{Width, Height, terminal_size};
 
 fn main() {
     let matches = App::new("ascii_display")
-        .version("1.0")
+        .version("1.1")
         .author("dadope")
         .about("a simple commandline utility, which displays a randomly selected ascii image")
         .arg(Arg::with_name("asciiDirectory")
@@ -25,9 +25,14 @@ fn main() {
             .short("v")
             .long("verbose")
             .help("Verbose output"))
+        .arg(Arg::with_name("no center")
+            .short("n")
+            .long("no_center")
+            .help("Disables image centering"))
         .get_matches();
 
     let verbose = matches.is_present("verbose");
+    let no_center = matches.is_present("no center");
 
     let mut directory= PathBuf::new();
 
@@ -100,10 +105,28 @@ fn main() {
             }
         }
 
-        let selected_string = available_ascii.choose(&mut rand::thread_rng())
+        let mut selected_string = available_ascii.choose(&mut rand::thread_rng())
             .unwrap_or(&backup_ascii.to_string()).to_string();
 
-        center_print_image(selected_string, term_width);
+        let longest_line = selected_string.lines().max_by(
+            |x, y| x.len().cmp(&y.len())
+        ).unwrap().len();
+
+        let lines = selected_string.lines().count();
+
+        if lines >= term_height || longest_line >= term_width {
+            selected_string = String::from(backup_ascii);
+
+            if verbose {
+                println!("The selected image too small for the terminal, falling back to the backup")
+            }
+        }
+
+        if no_center{
+            println!("{}", selected_string)
+        } else {
+            center_print_image(selected_string, term_width, longest_line);
+        }
 
         //prints out a line to indicate the center of the window
         if verbose{
@@ -119,11 +142,7 @@ fn main() {
 }
 
 // prints out the centered ascii image
-fn center_print_image(selected_string:String, term_width:usize){
-    let longest_line = selected_string.lines().max_by(
-        |x, y| x.len().cmp(&y.len())
-    ).unwrap().len();
-
+fn center_print_image(selected_string:String, term_width:usize, longest_line:usize){
     for line in selected_string.split("\n") {
         println!("{: ^width$}", line=line, width=term_width - (longest_line - line.len()));
     }
