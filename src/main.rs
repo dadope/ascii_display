@@ -1,5 +1,6 @@
 extern crate clap;
 extern crate rand;
+extern crate terminal_size;
 
 use std::fs;
 use std::process::exit;
@@ -7,6 +8,7 @@ use std::path::{PathBuf};
 
 use clap::{Arg, App};
 use rand::seq::SliceRandom;
+use terminal_size::{Width, Height, terminal_size};
 
 fn main() {
     let matches = App::new("ascii_display")
@@ -32,7 +34,7 @@ fn main() {
     let mut available_ascii = Vec::new();
 
     // Backup if no other ascii image can be found
-    let backup_ascii = r#"
+    let backup_ascii = r"
   _______________________________
  /\                              \
 /++\    __________________________\
@@ -50,8 +52,7 @@ fn main() {
            \+++++++/***/
             \+++++/***/
              \+++/***/
-              \+/___/
-           "#;
+              \+/___/";
 
     match matches.value_of("asciiDirectory") {
         Some(dir) => {
@@ -63,6 +64,23 @@ fn main() {
     }
 
     if verbose { println!("asciiDir: {:?}", directory.to_str().unwrap()) }
+
+    let size = terminal_size();
+    let term_height;
+    let term_width;
+
+    if let Some((Width(w), Height(h))) = size {
+        term_width = w as usize;
+        term_height = h as usize;
+
+        if verbose { println!("Your terminal is {} cols wide and {} lines tall", w, h) }
+    } else {
+        // arbitrary values for a fullscreen terminal
+        term_width = 236;
+        term_height = 60;
+
+        if verbose { println!("Unable to get terminal size") }
+    }
 
     if fs::metadata(&directory).is_ok() {
 
@@ -82,16 +100,32 @@ fn main() {
             }
         }
 
-        // prints out a randomly selected file
-        println!("{}", available_ascii.choose(&mut rand::thread_rng())
-            .as_deref().unwrap_or(&backup_ascii.to_string())
-        );
+        let selected_string = available_ascii.choose(&mut rand::thread_rng())
+            .unwrap_or(&backup_ascii.to_string()).to_string();
+
+        center_print_image(selected_string, term_width);
+
+        //prints out a line to indicate the center of the window
+        if verbose{
+            println!("{:_^term$}", "#", term=term_width);
+        }
     }
 
     // if ~/.asciiDisplay doesn't exist, print the backup image
     else {
         if verbose { println!("Directory ({:?}) does not exist!", directory.to_str().unwrap())}
         println!("{}", backup_ascii)
+    }
+}
+
+// prints out the centered ascii image
+fn center_print_image(selected_string:String, term_width:usize){
+    let longest_line = selected_string.lines().max_by(
+        |x, y| x.len().cmp(&y.len())
+    ).unwrap().len();
+
+    for line in selected_string.split("\n") {
+        println!("{: ^width$}", line=line, width=term_width - (longest_line - line.len()));
     }
 }
 
