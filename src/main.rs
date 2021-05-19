@@ -3,11 +3,14 @@ extern crate rand;
 extern crate terminal_size;
 
 use std::fs;
+use std::path::PathBuf;
 use std::process::exit;
-use std::path::{PathBuf};
+use std::thread::sleep;
+use std::time::Duration;
+
+use rand::seq::SliceRandom;
 
 use clap::{Arg, App};
-use rand::seq::SliceRandom;
 use terminal_size::{Width, Height, terminal_size};
 
 fn main() {
@@ -29,10 +32,15 @@ fn main() {
             .short("n")
             .long("no_center")
             .help("Disables image centering"))
+        .arg(Arg::with_name("no timeout")
+            .short("t")
+            .long("no_timeout")
+            .help("Disables initial delay (not recommended)"))
         .get_matches();
 
     let verbose = matches.is_present("verbose");
     let no_center = matches.is_present("no center");
+    let no_timeout = matches.is_present("no timeout");
 
     let mut directory= PathBuf::new();
 
@@ -56,8 +64,11 @@ fn main() {
           \+++\ /+++/***/
            \+++++++/***/
             \+++++/***/
-             \+++/***/
+             \+thread::++/***/
               \+/___/";
+
+    // slight delay, as the program runs so fast that getting the terminal size can be difficult
+    if !no_timeout { sleep(Duration::from_millis(100)) }
 
     match matches.value_of("asciiDirectory") {
         Some(dir) => {
@@ -108,17 +119,33 @@ fn main() {
         let mut selected_string = available_ascii.choose(&mut rand::thread_rng())
             .unwrap_or(&backup_ascii.to_string()).to_string();
 
-        let longest_line = selected_string.lines().max_by(
+        let mut longest_line = selected_string.lines().max_by(
             |x, y| x.len().cmp(&y.len())
         ).unwrap().len();
 
-        let lines = selected_string.lines().count();
+        let mut lines = selected_string.lines().count();
 
         if lines >= term_height || longest_line >= term_width {
             selected_string = String::from(backup_ascii);
 
+            longest_line = selected_string.lines().max_by(
+                |x, y| x.len().cmp(&y.len())
+            ).unwrap().len();
+
+            lines = selected_string.lines().count();
+
             if verbose {
-                println!("The selected image too small for the terminal, falling back to the backup")
+                println!("The selected image too small for the terminal, falling back to the backup image")
+            }
+
+            if lines >= term_height || longest_line >= term_width{
+                println!("{:_^term$}", "#", term=term_width);
+
+                if verbose{
+                    println!("terminal too small, even for the backup image, exiting")
+                }
+
+                exit(1);
             }
         }
 
